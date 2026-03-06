@@ -344,13 +344,21 @@
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="copyWebhookUrl()" style="font-size:11px;padding:6px 14px">📋 Copy URL</button>
-            <button class="btn btn-outline" onclick="generateWebhook()" style="font-size:11px;padding:6px 14px">🔄 New URL</button>
+            <button class="btn btn-outline" onclick="generateWebhook(true)" style="font-size:11px;padding:6px 14px">🔄 New URL</button>
           </div>
         </div>
         <div class="webhook-status" style="margin-top:10px">
           <span class="pulse" id="pollDot"></span>
           <span id="pollStatus">Initializing...</span>
           <span id="pollCount" style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px"></span>
+        </div>
+        <!-- Manual URL fallback -->
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px">Or paste your own Callback URL</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="manualCallbackUrl" placeholder="https://your-callback-url.com/webhook" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:8px 12px;color:var(--text-hi);font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none"/>
+            <button class="btn btn-outline" onclick="applyManualCallback()" style="font-size:11px;padding:6px 14px;white-space:nowrap">✓ Use This URL</button>
+          </div>
         </div>
       </div>
 
@@ -581,7 +589,7 @@ let callbackStats = { total:0, success:0, failed:0 };
 window.addEventListener('DOMContentLoaded', () => {
   loadState();
   updateEnvDisplay();
-  generateWebhook();
+  generateWebhook(false);
   genB2BConvId();
   genB2CConvId();
 });
@@ -771,33 +779,95 @@ function addSTKHistoryRow(data, payload) {
 // ══════════════════════════════════════════
 //  WEBHOOK.SITE CALLBACK INTEGRATION
 // ══════════════════════════════════════════
-async function generateWebhook() {
+function webhookApiUrl(path) {
+  if (document.getElementById('corsToggle').checked) {
+    return CORS_PROXY + encodeURIComponent('https://webhook.site' + path);
+  }
+  return 'https://webhook.site' + path;
+}
+
+async function tryFetchWebhookToken(useProxy) {
+  const base = useProxy
+    ? CORS_PROXY + encodeURIComponent('https://webhook.site/token')
+    : 'https://webhook.site/token';
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ default_status: 200, default_content: '{"success":true}', default_content_type: 'application/json' })
+  });
+  return await res.json();
+}
+
+function applyCallbackUrl(callbackUrl) {
+  document.getElementById('webhookUrl').textContent = callbackUrl;
+  document.getElementById('stkCallbackUrl').value = callbackUrl;
+  document.getElementById('b2bResultUrl').value   = callbackUrl;
+  document.getElementById('b2cResultUrl').value   = callbackUrl;
+  document.getElementById('b2bQueueUrl').value    = callbackUrl;
+  document.getElementById('b2cQueueUrl').value    = callbackUrl;
+}
+
+function applyManualCallback() {
+  const url = document.getElementById('manualCallbackUrl').value.trim();
+  if (!url) { alert('Please enter a callback URL.'); return; }
+  webhookUUID = '';
+  if (pollInterval) clearInterval(pollInterval);
+  applyCallbackUrl(url);
+  localStorage.setItem('kcb_callback_url', url);
+  localStorage.removeItem('kcb_webhook_uuid');
+  document.getElementById('pollStatus').textContent = 'Using custom URL (no auto-polling).';
+  document.getElementById('pollDot').style.background = 'var(--amber)';
+}
+
+async function generateWebhook(forceNew) {
   document.getElementById('webhookUrl').textContent = '⏳ Generating...';
   document.getElementById('pollStatus').textContent = 'Creating webhook endpoint...';
   if (pollInterval) clearInterval(pollInterval);
   pollSeenIds.clear();
 
-  try {
-    const res = await fetch('https://webhook.site/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ default_status: 200, default_content: '{"success":true}', default_content_type: 'application/json' })
-    });
-    const data = await res.json();
-    webhookUUID = data.uuid;
+  // Restore saved webhook UUID if available
+  const savedUUID = localStorage.getItem('kcb_webhook_uuid');
+  if (savedUUID && !forceNew) {
+    webhookUUID = savedUUID;
     const callbackUrl = `https://webhook.site/${webhookUUID}`;
-    document.getElementById('webhookUrl').textContent = callbackUrl;
-    document.getElementById('stkCallbackUrl').value = callbackUrl;
-    document.getElementById('b2bResultUrl').value   = callbackUrl;
-    document.getElementById('b2cResultUrl').value   = callbackUrl;
-    document.getElementById('b2bQueueUrl').value    = callbackUrl;
-    document.getElementById('b2cQueueUrl').value    = callbackUrl;
-    document.getElementById('pollStatus').textContent = 'Polling every 5 seconds...';
+    applyCallbackUrl(callbackUrl);
+    document.getElementById('pollStatus').textContent = 'Restored saved URL. Polling every 5 seconds...';
     startPolling();
-  } catch(err) {
-    document.getElementById('webhookUrl').textContent = '❌ Failed to generate. Check internet connection.';
-    document.getElementById('pollStatus').textContent = 'Error';
+    return;
   }
+
+  // Try direct first, then CORS proxy
+  let data = null;
+  try {
+    data = await tryFetchWebhookToken(false);
+  } catch(e1) {
+    document.getElementById('pollStatus').textContent = 'Direct call failed, trying via CORS proxy...';
+    try {
+      data = await tryFetchWebhookToken(true);
+    } catch(e2) {
+      // Check if user has a saved custom URL
+      const savedUrl = localStorage.getItem('kcb_callback_url');
+      if (savedUrl) {
+        applyCallbackUrl(savedUrl);
+        document.getElementById('pollStatus').textContent = 'Using saved custom URL.';
+        document.getElementById('pollDot').style.background = 'var(--amber)';
+        return;
+      }
+      document.getElementById('webhookUrl').textContent = '❌ Failed to generate. Use the manual URL input below or enable CORS Proxy toggle.';
+      document.getElementById('pollStatus').textContent = 'Error — paste a callback URL manually below';
+      document.getElementById('pollDot').style.background = 'var(--red)';
+      return;
+    }
+  }
+
+  webhookUUID = data.uuid;
+  const callbackUrl = `https://webhook.site/${webhookUUID}`;
+  applyCallbackUrl(callbackUrl);
+  localStorage.setItem('kcb_webhook_uuid', webhookUUID);
+  localStorage.removeItem('kcb_callback_url');
+  document.getElementById('pollStatus').textContent = 'Polling every 5 seconds...';
+  document.getElementById('pollDot').style.background = 'var(--green)';
+  startPolling();
 }
 function startPolling() {
   pollInterval = setInterval(pollWebhook, 5000);
@@ -806,7 +876,8 @@ function startPolling() {
 async function pollWebhook() {
   if (!webhookUUID) return;
   try {
-    const res = await fetch(`https://webhook.site/token/${webhookUUID}/requests?sorting=newest&per_page=25`);
+    const pollUrl = webhookApiUrl(`/token/${webhookUUID}/requests?sorting=newest&per_page=25`);
+    const res = await fetch(pollUrl);
     const data = await res.json();
     const requests = data.data || [];
     document.getElementById('pollCount').textContent = `${requests.length} received`;
