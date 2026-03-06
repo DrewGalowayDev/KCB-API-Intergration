@@ -277,12 +277,13 @@
           </div>
           <div class="field">
             <label>Phone Number</label>
-            <input type="text" id="stkPhone" placeholder="2547XXXXXXXX"/>
-            <span class="hint">Format: 254XXXXXXXXX</span>
+            <input type="text" id="stkPhone" placeholder="2547XXXXXXXX" oninput="autoFormatPhone(this)"/>
+            <span class="hint">Format: 254XXXXXXXXX (auto-converts 07xx to 2547xx)</span>
           </div>
           <div class="field">
             <label>Party A (Customer Phone)</label>
-            <input type="text" id="stkPartyA" placeholder="2547XXXXXXXX"/>
+            <input type="text" id="stkPartyA" placeholder="Auto-filled from Phone Number"/>
+            <span class="hint">Leave blank to use Phone Number above</span>
           </div>
           <div class="field">
             <label>Party B (Short Code)</label>
@@ -295,7 +296,8 @@
           </div>
           <div class="field">
             <label>Account Reference</label>
-            <input type="text" id="stkAccountRef" placeholder="e.g. TENANT-001 / INV-2025-001"/>
+            <input type="text" id="stkAccountRef" placeholder="e.g. TENANT-001 / INV-2025-001" value="TestPayment"/>
+            <span class="hint">Required — cannot be empty</span>
           </div>
         </div>
         <div class="field" style="margin-top:12px">
@@ -719,23 +721,58 @@ function autofillSTK() {
   const sc = document.getElementById('stkShortCode').value;
   document.getElementById('stkPartyB').value = sc;
   if (webhookUUID) document.getElementById('stkCallbackUrl').value = `https://webhook.site/${webhookUUID}`;
+  // Auto-format phone if filled
+  const phoneEl = document.getElementById('stkPhone');
+  if (phoneEl.value) phoneEl.value = formatPhone(phoneEl.value.trim()) || phoneEl.value;
+}
+
+function formatPhone(num) {
+  if (!num) return '';
+  num = num.replace(/[^0-9]/g, '');
+  if (num.startsWith('0') && num.length === 10) num = '254' + num.substring(1);
+  if (num.startsWith('+')) num = num.substring(1);
+  if (num.length === 12 && num.startsWith('254')) return num;
+  return num;
+}
+
+function autoFormatPhone(el) {
+  let v = el.value.replace(/[^0-9+]/g, '');
+  if (v.startsWith('0') && v.length >= 10) {
+    v = '254' + v.substring(1);
+    el.value = v;
+  }
 }
 async function sendSTKPush() {
   if (!accessToken) { alert('Get an access token first (Auth tab).'); return; }
+
+  // Format phone number
+  let phone = formatPhone(document.getElementById('stkPhone').value.trim());
+  if (!phone) { alert('Please enter a valid phone number (e.g. 254706576238).'); return; }
+  document.getElementById('stkPhone').value = phone;
+
+  const accountRef = document.getElementById('stkAccountRef').value.trim();
+  if (!accountRef) { alert('Account Reference is required by KCB Buni API.'); return; }
+
+  const callbackUrl = document.getElementById('stkCallbackUrl').value.trim();
+  if (!callbackUrl) { alert('Callback URL is required. Go to Callbacks tab to generate one, or paste your own.'); return; }
+
   const btn = document.getElementById('stkBtn');
   btn.innerHTML = '<span class="spin">◌</span> Sending...';
   btn.disabled = true;
+
+  const partyA = formatPhone(document.getElementById('stkPartyA').value.trim()) || phone;
+  const partyB = document.getElementById('stkPartyB').value.trim() || document.getElementById('stkShortCode').value.trim();
 
   const payload = {
     BusinessShortCode: document.getElementById('stkShortCode').value.trim(),
     TransactionType:   document.getElementById('stkTxnType').value,
     Amount:            parseFloat(document.getElementById('stkAmount').value),
-    PartyA:            document.getElementById('stkPartyA').value.trim() || document.getElementById('stkPhone').value.trim(),
-    PartyB:            document.getElementById('stkPartyB').value.trim() || document.getElementById('stkShortCode').value.trim(),
-    PhoneNumber:       document.getElementById('stkPhone').value.trim(),
-    CallBackURL:       document.getElementById('stkCallbackUrl').value.trim(),
-    AccountReference:  document.getElementById('stkAccountRef').value.trim(),
-    TransactionDesc:   document.getElementById('stkTxnDesc').value.trim()
+    PartyA:            partyA,
+    PartyB:            partyB,
+    PhoneNumber:       phone,
+    CallBackURL:       callbackUrl,
+    AccountReference:  accountRef,
+    TransactionDesc:   document.getElementById('stkTxnDesc').value.trim() || 'Payment'
   };
 
   const url = getEndpoint('stk');
