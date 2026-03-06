@@ -300,9 +300,16 @@
             <span class="hint">Required — cannot be empty</span>
           </div>
         </div>
-        <div class="field" style="margin-top:12px">
-          <label>Transaction Description</label>
-          <input type="text" id="stkTxnDesc" placeholder="WiFi Payment - June 2025" value="Payment"/>
+        <div class="form-grid" style="margin-top:12px">
+          <div class="field">
+            <label>Passkey</label>
+            <input type="text" id="stkPasskey" placeholder="Sandbox passkey (auto-filled)" value="bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"/>
+            <span class="hint">Sandbox default passkey pre-filled. Replace with your production passkey for live.</span>
+          </div>
+          <div class="field">
+            <label>Transaction Description</label>
+            <input type="text" id="stkTxnDesc" placeholder="WiFi Payment - June 2025" value="Payment"/>
+          </div>
         </div>
         <div class="btn-group">
           <button class="btn btn-primary" onclick="sendSTKPush()" id="stkBtn">📱 Send STK Push</button>
@@ -742,6 +749,15 @@ function autoFormatPhone(el) {
     el.value = v;
   }
 }
+function getStkTimestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+}
+function getStkPassword(shortCode, passkey, timestamp) {
+  return btoa(shortCode + passkey + timestamp);
+}
+
 async function sendSTKPush() {
   if (!accessToken) { alert('Get an access token first (Auth tab).'); return; }
 
@@ -756,15 +772,23 @@ async function sendSTKPush() {
   const callbackUrl = document.getElementById('stkCallbackUrl').value.trim();
   if (!callbackUrl) { alert('Callback URL is required. Go to Callbacks tab to generate one, or paste your own.'); return; }
 
+  const passkey = document.getElementById('stkPasskey').value.trim();
+  if (!passkey) { alert('Passkey is required for STK Push. Use the default sandbox passkey or your production passkey.'); return; }
+
   const btn = document.getElementById('stkBtn');
   btn.innerHTML = '<span class="spin">◌</span> Sending...';
   btn.disabled = true;
 
   const partyA = formatPhone(document.getElementById('stkPartyA').value.trim()) || phone;
   const partyB = document.getElementById('stkPartyB').value.trim() || document.getElementById('stkShortCode').value.trim();
+  const shortCode = document.getElementById('stkShortCode').value.trim();
+  const timestamp = getStkTimestamp();
+  const password = getStkPassword(shortCode, passkey, timestamp);
 
   const payload = {
-    BusinessShortCode: document.getElementById('stkShortCode').value.trim(),
+    BusinessShortCode: shortCode,
+    Password:          password,
+    Timestamp:         timestamp,
     TransactionType:   document.getElementById('stkTxnType').value,
     Amount:            parseFloat(document.getElementById('stkAmount').value),
     PartyA:            partyA,
@@ -790,6 +814,11 @@ async function sendSTKPush() {
     document.getElementById('stkResponseCard').style.display = 'block';
     document.getElementById('stkResponseBody').innerHTML = syntaxHighlight(data);
 
+    // Show targeted error guidance for common KCB error codes
+    if (data.code) {
+      showStkErrorGuidance(data);
+    }
+
     addSTKHistoryRow(data, payload);
   } catch(err) {
     logError(url, err);
@@ -797,6 +826,36 @@ async function sendSTKPush() {
   }
   btn.innerHTML = '📱 Send STK Push';
   btn.disabled = false;
+}
+
+function showStkErrorGuidance(data) {
+  const code = data.code;
+  let msg = '';
+  if (code === '900901') {
+    msg = '🔑 <b>Invalid JWT Token (900901):</b> Your access token is invalid or expired. Steps:<br>'
+        + '1. Go to Auth tab → click <b>Get Access Token</b> to generate a fresh token<br>'
+        + '2. On KCB Buni portal → go to <b>Applications → Qonnect Wifi → Subscriptions</b><br>'
+        + '3. Make sure <b>MpesaExpressAPIService</b> (STK Push) is subscribed<br>'
+        + '4. If not subscribed, go to <b>API Catalog → MpesaExpressAPIService → Subscribe</b> with your app<br>'
+        + '5. After subscribing, regenerate your Consumer Key/Secret and get a new token';
+  } else if (code === '900908') {
+    msg = '🚫 <b>API Subscription Failed (900908):</b> Your app is NOT subscribed to the STK Push API.<br>'
+        + '1. Go to KCB Buni portal → <b>API Catalog/Store</b><br>'
+        + '2. Find <b>MpesaExpressAPIService</b><br>'
+        + '3. Click <b>Subscribe</b> and select your app "Qonnect Wifi"<br>'
+        + '4. Then get a fresh access token from the Auth tab';
+  } else if (code === '900900') {
+    msg = '⏱️ <b>Unclassified Error (900900):</b> This is often a server-side issue. Wait a moment and retry.';
+  }
+  if (msg) {
+    const existing = document.getElementById('stkErrorAlert');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'stkErrorAlert';
+    div.className = 'alert alert-warn';
+    div.innerHTML = `<span class="alert-icon">⚠️</span><span>${msg}</span>`;
+    document.getElementById('stkResponseCard').after(div);
+  }
 }
 function addSTKHistoryRow(data, payload) {
   const tbody = document.getElementById('stkHistoryBody');
