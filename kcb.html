@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KCB Buni API Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #070d1a;
+    --bg2:       #0d1526;
+    --bg3:       #111d33;
+    --border:    #1e2e4a;
+    --border2:   #243350;
+    --green:     #00c853;
+    --green-dim: #00a844;
+    --cyan:      #00e5ff;
+    --cyan-dim:  #00b8cc;
+    --amber:     #ffab00;
+    --red:       #ff3d57;
+    --text:      #c8d8f0;
+    --text-dim:  #6a85a8;
+    --text-hi:   #eaf2ff;
+    --card:      #0d1a30;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
+  /* ───────── HEADER ───────── */
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;color:var(--text-hi)}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--green),var(--cyan));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#000}
+  .env-toggle{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;font-family:'IBM Plex Mono',monospace;font-size:12px}
+  .env-btn{padding:7px 18px;cursor:pointer;border:none;background:transparent;color:var(--text-dim);transition:.2s;font-family:inherit;font-size:12px;font-weight:500}
+  .env-btn.active.sandbox{background:rgba(0,200,83,.18);color:var(--green)}
+  .env-btn.active.prod{background:rgba(255,171,0,.18);color:var(--amber)}
+  .header-right{display:flex;align-items:center;gap:12px}
+  .cors-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim)}
+  .toggle-sw{position:relative;width:36px;height:20px;cursor:pointer}
+  .toggle-sw input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;transition:.3s}
+  .slider:before{content:'';position:absolute;width:14px;height:14px;left:2px;top:2px;background:var(--text-dim);border-radius:50%;transition:.3s}
+  input:checked+.slider{background:rgba(0,229,255,.2);border-color:var(--cyan)}
+  input:checked+.slider:before{transform:translateX(16px);background:var(--cyan)}
+  /* ───────── TABS ───────── */
+  .tabs{display:flex;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);gap:0;overflow-x:auto}
+  .tab{padding:12px 20px;cursor:pointer;border-bottom:2px solid transparent;font-size:13px;font-weight:500;color:var(--text-dim);white-space:nowrap;transition:.2s;user-select:none}
+  .tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+  .tab:hover:not(.active){color:var(--text);border-bottom-color:var(--border2)}
+  /* ───────── MAIN LAYOUT ───────── */
+  .main{display:grid;grid-template-columns:1fr 380px;height:calc(100vh - 97px);overflow:hidden}
+  @media(max-width:900px){.main{grid-template-columns:1fr;height:auto}}
+  .content{overflow-y:auto;padding:24px}
+  /* ───────── CARDS ───────── */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+  .card-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan)}
+  /* ───────── FORM ───────── */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+  .form-grid.full{grid-template-columns:1fr}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)}
+  .field input,.field select,.field textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;color:var(--text-hi);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;transition:.2s;width:100%}
+  .field input:focus,.field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.07)}
+  .field select option{background:var(--bg3)}
+  .field textarea{resize:vertical;min-height:70px}
+  .field .hint{font-size:10px;color:var(--text-dim);margin-top:2px}
+  /* ───────── BUTTONS ───────── */
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:7px;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;transition:.2s;letter-spacing:.02em}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:linear-gradient(135deg,var(--green),var(--cyan-dim));color:#000}
+  .btn-primary:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+  .btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text)}
+  .btn-outline:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn-amber{background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:var(--amber)}
+  .btn-red{background:rgba(255,61,87,.12);border:1px solid rgba(255,61,87,.3);color:var(--red)}
+  .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .btn .spin{animation:spin .7s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* ───────── STATUS BADGES ───────── */
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em}
+  .badge-success{background:rgba(0,200,83,.15);color:var(--green);border:1px solid rgba(0,200,83,.25)}
+  .badge-pending{background:rgba(255,171,0,.15);color:var(--amber);border:1px solid rgba(255,171,0,.25)}
+  .badge-failed{background:rgba(255,61,87,.15);color:var(--red);border:1px solid rgba(255,61,87,.25)}
+  .badge-info{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.2)}
+  /* ───────── TOKEN BOX ───────── */
+  .token-box{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;word-break:break-all;line-height:1.6;position:relative;margin-top:10px}
+  .token-box .token-label{font-size:10px;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+  .token-box .token-val{color:var(--green);font-weight:500}
+  .copy-btn{position:absolute;top:8px;right:8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;transition:.2s}
+  .copy-btn:hover{color:var(--cyan);border-color:var(--cyan)}
+  /* ───────── WEBHOOK URL BOX ───────── */
+  .webhook-box{background:linear-gradient(135deg,rgba(0,200,83,.06),rgba(0,229,255,.06));border:1px solid rgba(0,229,255,.2);border-radius:10px;padding:16px;margin-bottom:16px}
+  .webhook-url{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--cyan);word-break:break-all;margin:6px 0}
+  .webhook-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim)}
+  .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,200,83,.4)}50%{opacity:.8;box-shadow:0 0 0 6px rgba(0,200,83,0)}}
+  /* ───────── TABLE ───────── */
+  .tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;font-size:12px;font-family:'IBM Plex Mono',monospace}
+  th{background:var(--bg3);padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .td-mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim)}
+  /* ───────── LOG PANEL ───────── */
+  .log-panel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .log-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .log-title{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+  .log-count{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1px 8px;font-size:10px;color:var(--text-dim)}
+  .log-body{overflow-y:auto;flex:1;padding:12px}
+  .log-entry{margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid var(--border);font-family:'IBM Plex Mono',monospace}
+  .log-entry-header{padding:7px 12px;font-size:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .log-entry-header.req{background:rgba(0,229,255,.07);border-bottom:1px solid var(--border)}
+  .log-entry-header.res-ok{background:rgba(0,200,83,.07);border-bottom:1px solid var(--border)}
+  .log-entry-header.res-err{background:rgba(255,61,87,.07);border-bottom:1px solid var(--border)}
+  .log-method{font-weight:700;color:var(--cyan)}
+  .log-url{color:var(--text-dim);font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+  .log-time{color:var(--text-dim);font-size:9px;white-space:nowrap}
+  .log-json{padding:10px 12px;font-size:10px;line-height:1.7;overflow-x:auto;background:var(--bg);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto}
+  .j-key{color:#7eb8f7}
+  .j-str{color:#a8e6a3}
+  .j-num{color:#f0c070}
+  .j-bool{color:#ff9f8d}
+  .j-null{color:var(--text-dim)}
+  /* ───────── ALERTS ───────── */
+  .alert{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;line-height:1.6;display:flex;gap:10px}
+  .alert-warn{background:rgba(255,171,0,.08);border:1px solid rgba(255,171,0,.2);color:#e8c97a}
+  .alert-info{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.18);color:#7fd4e8}
+  .alert-success{background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.18);color:#7fcc9a}
+  .alert-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+  /* ───────── STATS GRID ───────── */
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px}
+  .stat-val{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text-hi)}
+  .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-top:3px}
+  /* ───────── MISC ───────── */
+  .section-tabs{display:flex;gap:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:16px}
+  .section-tab{padding:6px 14px;font-size:11px;cursor:pointer;font-weight:500;color:var(--text-dim);border:none;background:transparent;font-family:'IBM Plex Mono',monospace;transition:.2s}
+  .section-tab.active{background:rgba(0,229,255,.12);color:var(--cyan)}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+  .empty-state{text-align:center;padding:40px;color:var(--text-dim);font-size:12px}
+  .empty-icon{font-size:32px;margin-bottom:8px;opacity:.3}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:var(--bg2)}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  .env-indicator{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:3px 10px;border-radius:4px;font-weight:600}
+  .env-indicator.sandbox{background:rgba(0,200,83,.12);color:var(--green);border:1px solid rgba(0,200,83,.25)}
+  .env-indicator.prod{background:rgba(255,171,0,.12);color:var(--amber);border:1px solid rgba(255,171,0,.25)}
+  .pw-field{position:relative}
+  .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-dim);font-size:11px;font-family:'IBM Plex Mono',monospace;user-select:none}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">K</div>
+    KCB Buni API Tester
+  </div>
+  <div class="tabs" style="padding:0;background:transparent;border:none;margin:0">
+    <div class="tab active" onclick="switchTab('auth')">🔑 Auth</div>
+    <div class="tab" onclick="switchTab('stk')">📱 STK Push</div>
+    <div class="tab" onclick="switchTab('c2b')">📥 Callbacks</div>
+    <div class="tab" onclick="switchTab('b2b')">💸 B2B / B2C</div>
+  </div>
+  <div class="header-right">
+    <div class="env-toggle">
+      <button class="env-btn sandbox active" onclick="setEnv('sandbox')">SANDBOX</button>
+      <button class="env-btn prod" onclick="setEnv('prod')">PRODUCTION</button>
+    </div>
+    <div class="cors-wrap">
+      <label class="toggle-sw">
+        <input type="checkbox" id="corsToggle" onchange="saveCorsState()"/>
+        <span class="slider"></span>
+      </label>
+      <span id="corsLabel">CORS Proxy</span>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- LEFT CONTENT -->
+  <div class="content">
+
+    <!-- ══════════ AUTH TAB ══════════ -->
+    <div class="tab-panel active" id="tab-auth">
+      <div class="alert alert-warn">
+        <span class="alert-icon">⚠️</span>
+        <span><b>Production credentials are sensitive.</b> Disable the CORS proxy when using production keys. For production, call APIs from your backend server — not directly from the browser.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>API Credentials</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Consumer Key</label>
+            <div class="pw-field">
+              <input type="password" id="consumerKey" placeholder="Enter Consumer Key" oninput="saveCredentials()"/>
+              <span class="pw-toggle" onclick="togglePw('consumerKey')">show</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Consumer Secret</label>
+            <div class="pw-field">
+              <input type="password" id="consumerSecret" placeholder="Enter Consumer Secret" oninput="saveCredentials()"/>
+              <span class="pw-toggle" onclick="togglePw('consumerSecret')">show</span>
+            </div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Environment</label>
+            <input type="text" id="currentEnvLabel" readonly/>
+          </div>
+          <div class="field">
+            <label>Token Endpoint</label>
+            <input type="text" id="tokenEndpointDisplay" readonly style="font-size:10px"/>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="getToken()" id="tokenBtn">⚡ Get Access Token</button>
+          <button class="btn btn-outline" onclick="clearToken()">✕ Clear Token</button>
+        </div>
+        <div id="tokenResult" style="display:none" class="token-box">
+          <div class="token-label">Bearer Token <span id="tokenExpiry" style="float:right;font-size:10px"></span></div>
+          <div class="token-val" id="tokenVal">—</div>
+          <button class="copy-btn" onclick="copyToken()">copy</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--green)"></span>API Endpoints Reference</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:2.2">
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:4px 12px">
+            <span style="color:var(--text-dim)">Token</span>
+            <span id="ref-token" style="color:var(--cyan)"></span>
+            <span style="color:var(--text-dim)">STK Push</span>
+            <span id="ref-stk" style="color:var(--cyan)"></span>
+            <span style="color:var(--text-dim)">B2B</span>
+            <span id="ref-b2b" style="color:var(--cyan)"></span>
+            <span style="color:var(--text-dim)">B2C</span>
+            <span id="ref-b2c" style="color:var(--cyan)"></span>
+            <span style="color:var(--text-dim)">Account Balance</span>
+            <span id="ref-bal" style="color:var(--cyan)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ STK PUSH TAB ══════════ -->
+    <div class="tab-panel" id="tab-stk">
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--green)"></span>M-Pesa Express — STK Push</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Business Short Code</label>
+            <input type="text" id="stkShortCode" placeholder="e.g. 174379" value="174379"/>
+            <span class="hint">Sandbox: use 174379 for testing</span>
+          </div>
+          <div class="field">
+            <label>Transaction Type</label>
+            <select id="stkTxnType">
+              <option value="CustomerPayBillOnline">CustomerPayBillOnline</option>
+              <option value="CustomerBuyGoodsOnline">CustomerBuyGoodsOnline</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Amount (KES)</label>
+            <input type="number" id="stkAmount" placeholder="e.g. 100" value="1"/>
+          </div>
+          <div class="field">
+            <label>Phone Number</label>
+            <input type="text" id="stkPhone" placeholder="2547XXXXXXXX"/>
+            <span class="hint">Format: 254XXXXXXXXX</span>
+          </div>
+          <div class="field">
+            <label>Party A (Customer Phone)</label>
+            <input type="text" id="stkPartyA" placeholder="2547XXXXXXXX"/>
+          </div>
+          <div class="field">
+            <label>Party B (Short Code)</label>
+            <input type="text" id="stkPartyB" placeholder="174379"/>
+          </div>
+          <div class="field">
+            <label>Callback URL</label>
+            <input type="text" id="stkCallbackUrl" placeholder="Auto-filled from Callbacks tab"/>
+            <span class="hint">Go to Callbacks tab to generate a live URL</span>
+          </div>
+          <div class="field">
+            <label>Account Reference</label>
+            <input type="text" id="stkAccountRef" placeholder="e.g. TENANT-001 / INV-2025-001"/>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Transaction Description</label>
+          <input type="text" id="stkTxnDesc" placeholder="WiFi Payment - June 2025" value="Payment"/>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="sendSTKPush()" id="stkBtn">📱 Send STK Push</button>
+          <button class="btn btn-outline" onclick="autofillSTK()">↺ Auto-fill from Auth</button>
+        </div>
+      </div>
+
+      <div id="stkResponseCard" style="display:none" class="card">
+        <div class="card-title"><span class="dot" style="background:var(--amber)"></span>Last STK Push Response</div>
+        <div id="stkResponseBody" class="log-json" style="border-radius:8px;border:1px solid var(--border)"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>STK Push History</div>
+        <div class="tbl-wrap">
+          <table id="stkHistoryTable">
+            <thead><tr>
+              <th>Checkout ID</th><th>Phone</th><th>Amount</th>
+              <th>Account Ref</th><th>Status</th><th>Time</th>
+            </tr></thead>
+            <tbody id="stkHistoryBody">
+              <tr><td colspan="6" class="empty-state"><div class="empty-icon">📭</div>No STK pushes yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ C2B CALLBACKS TAB ══════════ -->
+    <div class="tab-panel" id="tab-c2b">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        <span>A live <b>webhook.site</b> URL is generated for you below. Use it as the Callback URL in your STK Push. KCB Buni will POST the payment result here in real-time. This page polls it every 5 seconds automatically.</span>
+      </div>
+
+      <div class="webhook-box" id="webhookBox">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:4px">Live Callback URL (webhook.site)</div>
+            <div class="webhook-url" id="webhookUrl">⏳ Generating URL...</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-outline" onclick="copyWebhookUrl()" style="font-size:11px;padding:6px 14px">📋 Copy URL</button>
+            <button class="btn btn-outline" onclick="generateWebhook()" style="font-size:11px;padding:6px 14px">🔄 New URL</button>
+          </div>
+        </div>
+        <div class="webhook-status" style="margin-top:10px">
+          <span class="pulse" id="pollDot"></span>
+          <span id="pollStatus">Initializing...</span>
+          <span id="pollCount" style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px"></span>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-total">0</div>
+          <div class="stat-label">Total Callbacks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-success" style="color:var(--green)">0</div>
+          <div class="stat-label">Successful</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-failed" style="color:var(--red)">0</div>
+          <div class="stat-label">Failed / Cancelled</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--green)"></span>Incoming Payment Callbacks</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Receipt No.</th><th>Phone</th><th>Amount</th>
+              <th>Bill Ref</th><th>Result</th><th>Timestamp</th><th>Raw</th>
+            </tr></thead>
+            <tbody id="callbackBody">
+              <tr><td colspan="7" class="empty-state"><div class="empty-icon">📡</div>Waiting for callbacks...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="rawCallbackCard" style="display:none">
+        <div class="card-title"><span class="dot" style="background:var(--amber)"></span>Raw Callback Payload</div>
+        <div id="rawCallbackBody" class="log-json" style="border-radius:8px;border:1px solid var(--border)"></div>
+      </div>
+    </div>
+
+    <!-- ══════════ B2B / B2C TAB ══════════ -->
+    <div class="tab-panel" id="tab-b2b">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        <span>Use B2B to disburse funds to Paybills, Tills, or bank accounts. Use B2C to send directly to M-Pesa, VOOMA, or Airtel Money wallets. Supports multi-tenant WiFi billing settlements.</span>
+      </div>
+
+      <div class="section-tabs">
+        <button class="section-tab active" onclick="switchB2BTab('b2b')">B2B Transfer</button>
+        <button class="section-tab" onclick="switchB2BTab('b2c')">B2C Transfer</button>
+      </div>
+
+      <!-- B2B FORM -->
+      <div id="b2bForm" class="card">
+        <div class="card-title"><span class="dot"></span>B2B — Business to Business</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Originator Conversation ID</label>
+            <input type="text" id="b2bConvId" placeholder="Auto-generated UUID"/>
+            <span class="hint">Unique identifier for this request</span>
+          </div>
+          <div class="field">
+            <label>Amount (KES)</label>
+            <input type="number" id="b2bAmount" placeholder="e.g. 500"/>
+          </div>
+          <div class="field">
+            <label>Receiver Party Type</label>
+            <select id="b2bReceiverType">
+              <option value="4">Paybill (4)</option>
+              <option value="2">Till Number (2)</option>
+              <option value="1">MSISDN / Phone (1)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Receiver Short Code / Phone</label>
+            <input type="text" id="b2bReceiver" placeholder="e.g. 600000"/>
+          </div>
+          <div class="field">
+            <label>Sender Identifier (Your Paybill/Till)</label>
+            <input type="text" id="b2bSender" placeholder="Your Short Code"/>
+          </div>
+          <div class="field">
+            <label>Requester (Optional — MSISDN)</label>
+            <input type="text" id="b2bRequester" placeholder="2547XXXXXXXX"/>
+          </div>
+          <div class="field">
+            <label>Account Reference</label>
+            <input type="text" id="b2bAccountRef" placeholder="e.g. TENANT-001"/>
+          </div>
+          <div class="field">
+            <label>Queue Timeout URL</label>
+            <input type="text" id="b2bQueueUrl" placeholder="https://..."/>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Result URL (B2B Callback)</label>
+          <input type="text" id="b2bResultUrl" placeholder="Auto-filled from Callbacks tab"/>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Remarks</label>
+          <input type="text" id="b2bRemarks" placeholder="Tenant settlement - June 2025"/>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="sendB2B()" id="b2bBtn">💸 Send B2B Transfer</button>
+          <button class="btn btn-outline" onclick="genB2BConvId()">🔁 New Conv. ID</button>
+        </div>
+      </div>
+
+      <!-- B2C FORM -->
+      <div id="b2cForm" class="card" style="display:none">
+        <div class="card-title"><span class="dot"></span>B2C — Business to Customer</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Originator Conversation ID</label>
+            <input type="text" id="b2cConvId" placeholder="Auto-generated UUID"/>
+          </div>
+          <div class="field">
+            <label>Amount (KES)</label>
+            <input type="number" id="b2cAmount" placeholder="e.g. 200"/>
+          </div>
+          <div class="field">
+            <label>Command ID</label>
+            <select id="b2cCommandId">
+              <option value="BusinessPayment">BusinessPayment</option>
+              <option value="SalaryPayment">SalaryPayment</option>
+              <option value="PromotionPayment">PromotionPayment</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Receiver Phone (MSISDN)</label>
+            <input type="text" id="b2cReceiver" placeholder="2547XXXXXXXX"/>
+          </div>
+          <div class="field">
+            <label>Party A (Your Short Code)</label>
+            <input type="text" id="b2cPartyA" placeholder="Your Short Code"/>
+          </div>
+          <div class="field">
+            <label>Queue Timeout URL</label>
+            <input type="text" id="b2cQueueUrl" placeholder="https://..."/>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Result URL (B2C Callback)</label>
+          <input type="text" id="b2cResultUrl" placeholder="Auto-filled from Callbacks tab"/>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Remarks</label>
+          <input type="text" id="b2cRemarks" placeholder="WiFi landlord payout"/>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="sendB2C()" id="b2cBtn">💸 Send B2C Transfer</button>
+          <button class="btn btn-outline" onclick="genB2CConvId()">🔁 New Conv. ID</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Disbursement History</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Type</th><th>Conv. ID</th><th>Receiver</th>
+              <th>Amount</th><th>Account Ref</th><th>Status</th><th>Time</th>
+            </tr></thead>
+            <tbody id="disbHistoryBody">
+              <tr><td colspan="7" class="empty-state"><div class="empty-icon">📤</div>No disbursements yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- RIGHT LOG PANEL -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-title">
+        ⚡ API Log
+        <span class="log-count" id="logCount">0</span>
+      </div>
+      <button class="btn btn-red" style="padding:4px 10px;font-size:10px" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="empty-state" style="padding:30px 0" id="logEmpty">
+        <div class="empty-icon">📋</div>
+        API requests will appear here
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const ENDPOINTS = {
+  sandbox: {
+    base:   'https://uat.buni.kcbgroup.com',
+    token:  'https://uat.buni.kcbgroup.com/token?grant_type=client_credentials',
+    stk:    'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/stkpush',
+    b2b:    'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/b2b',
+    b2c:    'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/b2c',
+    bal:    'https://uat.buni.kcbgroup.com/mm/api/request/1.0.0/accountbalance',
+  },
+  prod: {
+    base:   'https://buni.kcbgroup.com',
+    token:  'https://buni.kcbgroup.com/token?grant_type=client_credentials',
+    stk:    'https://buni.kcbgroup.com/mm/api/request/1.0.0/stkpush',
+    b2b:    'https://buni.kcbgroup.com/mm/api/request/1.0.0/b2b',
+    b2c:    'https://buni.kcbgroup.com/mm/api/request/1.0.0/b2c',
+    bal:    'https://buni.kcbgroup.com/mm/api/request/1.0.0/accountbalance',
+  }
+};
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+let currentEnv = 'sandbox';
+let accessToken = '';
+let tokenTimer  = null;
+let webhookUUID = '';
+let pollInterval= null;
+let pollSeenIds = new Set();
+let logEntries  = 0;
+let callbackStats = { total:0, success:0, failed:0 };
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  updateEnvDisplay();
+  generateWebhook();
+  genB2BConvId();
+  genB2CConvId();
+});
+
+function loadState() {
+  const ck = localStorage.getItem('kcb_ck') || '';
+  const cs = localStorage.getItem('kcb_cs') || '';
+  const env= localStorage.getItem('kcb_env') || 'sandbox';
+  const cp = localStorage.getItem('kcb_cors') === 'true';
+  document.getElementById('consumerKey').value    = ck;
+  document.getElementById('consumerSecret').value = cs;
+  document.getElementById('corsToggle').checked   = cp;
+  currentEnv = env;
+  document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.env-btn.${env}`).classList.add('active');
+}
+function saveCredentials() {
+  localStorage.setItem('kcb_ck', document.getElementById('consumerKey').value);
+  localStorage.setItem('kcb_cs', document.getElementById('consumerSecret').value);
+}
+function saveCorsState() {
+  localStorage.setItem('kcb_cors', document.getElementById('corsToggle').checked);
+}
+
+// ══════════════════════════════════════════
+//  ENV
+// ══════════════════════════════════════════
+function setEnv(env) {
+  currentEnv = env;
+  localStorage.setItem('kcb_env', env);
+  document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.env-btn.${env}`).classList.add('active');
+  updateEnvDisplay();
+}
+function updateEnvDisplay() {
+  const ep = ENDPOINTS[currentEnv];
+  const lbl = currentEnv === 'sandbox' ? 'SANDBOX (UAT)' : '⚠️ PRODUCTION';
+  document.getElementById('currentEnvLabel').value = lbl;
+  document.getElementById('tokenEndpointDisplay').value = ep.token;
+  document.getElementById('ref-token').textContent= ep.token;
+  document.getElementById('ref-stk').textContent  = ep.stk;
+  document.getElementById('ref-b2b').textContent  = ep.b2b;
+  document.getElementById('ref-b2c').textContent  = ep.b2c;
+  document.getElementById('ref-bal').textContent  = ep.bal;
+}
+function getEndpoint(key) {
+  let url = ENDPOINTS[currentEnv][key];
+  if (document.getElementById('corsToggle').checked) {
+    url = CORS_PROXY + encodeURIComponent(url);
+  }
+  return url;
+}
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  const map = {auth:0,stk:1,c2b:2,b2b:3};
+  document.querySelectorAll('.tabs .tab')[map[name]].classList.add('active');
+}
+function switchB2BTab(tab) {
+  document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('b2bForm').style.display = tab==='b2b'?'block':'none';
+  document.getElementById('b2cForm').style.display = tab==='b2c'?'block':'none';
+}
+
+// ══════════════════════════════════════════
+//  AUTH — GET TOKEN
+// ══════════════════════════════════════════
+async function getToken() {
+  const ck = document.getElementById('consumerKey').value.trim();
+  const cs = document.getElementById('consumerSecret').value.trim();
+  if (!ck || !cs) { alert('Please enter Consumer Key and Consumer Secret.'); return; }
+
+  const btn = document.getElementById('tokenBtn');
+  btn.innerHTML = '<span class="spin">◌</span> Fetching...';
+  btn.disabled = true;
+
+  const credentials = btoa(`${ck}:${cs}`);
+  const url = getEndpoint('token');
+
+  logRequest('POST', url, { Authorization: 'Basic [base64(ck:cs)]' }, null);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${credentials}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    const data = await res.json();
+    logResponse(res.status, url, data);
+
+    if (data.access_token) {
+      accessToken = data.access_token;
+      const expSec = data.expires_in || 3600;
+      document.getElementById('tokenVal').textContent = accessToken;
+      document.getElementById('tokenResult').style.display = 'block';
+      document.getElementById('tokenExpiry').textContent = `expires in ${expSec}s`;
+      if (tokenTimer) clearTimeout(tokenTimer);
+      tokenTimer = setTimeout(()=>{ accessToken=''; document.getElementById('tokenExpiry').textContent='⚠️ EXPIRED'; }, expSec*1000);
+    } else {
+      alert('Token request failed: ' + JSON.stringify(data));
+    }
+  } catch(err) {
+    logError(url, err);
+    showCorsWarning();
+  }
+  btn.innerHTML = '⚡ Get Access Token';
+  btn.disabled = false;
+}
+function clearToken() {
+  accessToken = '';
+  document.getElementById('tokenResult').style.display = 'none';
+  document.getElementById('tokenVal').textContent = '—';
+}
+function copyToken() {
+  navigator.clipboard.writeText(accessToken).then(()=>{ const b=document.querySelector('.copy-btn'); b.textContent='✓ copied'; setTimeout(()=>b.textContent='copy',1500); });
+}
+
+// ══════════════════════════════════════════
+//  STK PUSH
+// ══════════════════════════════════════════
+function autofillSTK() {
+  const sc = document.getElementById('stkShortCode').value;
+  document.getElementById('stkPartyB').value = sc;
+  if (webhookUUID) document.getElementById('stkCallbackUrl').value = `https://webhook.site/${webhookUUID}`;
+}
+async function sendSTKPush() {
+  if (!accessToken) { alert('Get an access token first (Auth tab).'); return; }
+  const btn = document.getElementById('stkBtn');
+  btn.innerHTML = '<span class="spin">◌</span> Sending...';
+  btn.disabled = true;
+
+  const payload = {
+    BusinessShortCode: document.getElementById('stkShortCode').value.trim(),
+    TransactionType:   document.getElementById('stkTxnType').value,
+    Amount:            parseFloat(document.getElementById('stkAmount').value),
+    PartyA:            document.getElementById('stkPartyA').value.trim() || document.getElementById('stkPhone').value.trim(),
+    PartyB:            document.getElementById('stkPartyB').value.trim() || document.getElementById('stkShortCode').value.trim(),
+    PhoneNumber:       document.getElementById('stkPhone').value.trim(),
+    CallBackURL:       document.getElementById('stkCallbackUrl').value.trim(),
+    AccountReference:  document.getElementById('stkAccountRef').value.trim(),
+    TransactionDesc:   document.getElementById('stkTxnDesc').value.trim()
+  };
+
+  const url = getEndpoint('stk');
+  logRequest('POST', url, { Authorization: 'Bearer ...', 'Content-Type': 'application/json' }, payload);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    logResponse(res.status, url, data);
+
+    document.getElementById('stkResponseCard').style.display = 'block';
+    document.getElementById('stkResponseBody').innerHTML = syntaxHighlight(data);
+
+    addSTKHistoryRow(data, payload);
+  } catch(err) {
+    logError(url, err);
+    showCorsWarning();
+  }
+  btn.innerHTML = '📱 Send STK Push';
+  btn.disabled = false;
+}
+function addSTKHistoryRow(data, payload) {
+  const tbody = document.getElementById('stkHistoryBody');
+  const empty = tbody.querySelector('td[colspan]');
+  if (empty) tbody.innerHTML = '';
+  const status = data.ResponseCode === '0' ? 'pending' : 'failed';
+  const row = tbody.insertRow(0);
+  row.innerHTML = `
+    <td class="td-mono">${data.CheckoutRequestID||'—'}</td>
+    <td>${payload.PhoneNumber}</td>
+    <td>KES ${payload.Amount}</td>
+    <td class="td-mono">${payload.AccountReference}</td>
+    <td><span class="badge badge-${status}">${status}</span></td>
+    <td class="td-mono">${new Date().toLocaleTimeString()}</td>`;
+}
+
+// ══════════════════════════════════════════
+//  WEBHOOK.SITE CALLBACK INTEGRATION
+// ══════════════════════════════════════════
+async function generateWebhook() {
+  document.getElementById('webhookUrl').textContent = '⏳ Generating...';
+  document.getElementById('pollStatus').textContent = 'Creating webhook endpoint...';
+  if (pollInterval) clearInterval(pollInterval);
+  pollSeenIds.clear();
+
+  try {
+    const res = await fetch('https://webhook.site/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ default_status: 200, default_content: '{"success":true}', default_content_type: 'application/json' })
+    });
+    const data = await res.json();
+    webhookUUID = data.uuid;
+    const callbackUrl = `https://webhook.site/${webhookUUID}`;
+    document.getElementById('webhookUrl').textContent = callbackUrl;
+    document.getElementById('stkCallbackUrl').value = callbackUrl;
+    document.getElementById('b2bResultUrl').value   = callbackUrl;
+    document.getElementById('b2cResultUrl').value   = callbackUrl;
+    document.getElementById('b2bQueueUrl').value    = callbackUrl;
+    document.getElementById('b2cQueueUrl').value    = callbackUrl;
+    document.getElementById('pollStatus').textContent = 'Polling every 5 seconds...';
+    startPolling();
+  } catch(err) {
+    document.getElementById('webhookUrl').textContent = '❌ Failed to generate. Check internet connection.';
+    document.getElementById('pollStatus').textContent = 'Error';
+  }
+}
+function startPolling() {
+  pollInterval = setInterval(pollWebhook, 5000);
+  pollWebhook();
+}
+async function pollWebhook() {
+  if (!webhookUUID) return;
+  try {
+    const res = await fetch(`https://webhook.site/token/${webhookUUID}/requests?sorting=newest&per_page=25`);
+    const data = await res.json();
+    const requests = data.data || [];
+    document.getElementById('pollCount').textContent = `${requests.length} received`;
+    let newFound = false;
+    for (const req of requests) {
+      if (pollSeenIds.has(req.uuid)) continue;
+      pollSeenIds.add(req.uuid);
+      newFound = true;
+      processCallback(req);
+    }
+    if (newFound) document.getElementById('pollStatus').textContent = `Last poll: ${new Date().toLocaleTimeString()} — new data received!`;
+    else          document.getElementById('pollStatus').textContent = `Last poll: ${new Date().toLocaleTimeString()} — listening...`;
+  } catch(e) {}
+}
+function processCallback(req) {
+  let body = {};
+  try { body = JSON.parse(req.content); } catch(e) { body = { raw: req.content }; }
+
+  callbackStats.total++;
+  const stkCb = body?.Body?.stkCallback;
+  let receipt='—', phone='—', amount='—', billRef='—', resultCode=-1, resultDesc='Unknown';
+
+  if (stkCb) {
+    resultCode = stkCb.ResultCode;
+    resultDesc = stkCb.ResultDesc || '';
+    const items = stkCb.CallbackMetadata?.Item || [];
+    items.forEach(i => {
+      if (i.Name==='MpesaReceiptNumber') receipt = i.Value;
+      if (i.Name==='PhoneNumber')        phone   = i.Value;
+      if (i.Name==='Amount')             amount  = 'KES '+i.Value;
+      if (i.Name==='AccountReference'||i.Name==='BillRefNumber') billRef = i.Value;
+    });
+  }
+
+  const success = resultCode === 0;
+  if (success) callbackStats.success++; else callbackStats.failed++;
+  updateCallbackStats();
+
+  const tbody = document.getElementById('callbackBody');
+  const empty = tbody.querySelector('td[colspan]');
+  if (empty) tbody.innerHTML = '';
+  const row = tbody.insertRow(0);
+  const statusBadge = success
+    ? '<span class="badge badge-success">✓ Success</span>'
+    : `<span class="badge badge-failed">✕ ${resultCode}</span>`;
+  row.innerHTML = `
+    <td class="td-mono">${receipt}</td>
+    <td>${phone}</td>
+    <td>${amount}</td>
+    <td class="td-mono">${billRef}</td>
+    <td>${statusBadge}</td>
+    <td class="td-mono">${new Date().toLocaleTimeString()}</td>
+    <td><button class="btn btn-outline" style="padding:2px 8px;font-size:10px" onclick='showRawCallback(${JSON.stringify(JSON.stringify(body))})'>view</button></td>`;
+
+  logEntry('CALLBACK', '(incoming)', 200, body);
+}
+function showRawCallback(jsonStr) {
+  const data = JSON.parse(jsonStr);
+  document.getElementById('rawCallbackCard').style.display = 'block';
+  document.getElementById('rawCallbackBody').innerHTML = syntaxHighlight(data);
+  document.getElementById('rawCallbackCard').scrollIntoView({behavior:'smooth'});
+}
+function updateCallbackStats() {
+  document.getElementById('stat-total').textContent  = callbackStats.total;
+  document.getElementById('stat-success').textContent= callbackStats.success;
+  document.getElementById('stat-failed').textContent = callbackStats.failed;
+}
+function copyWebhookUrl() {
+  const url = document.getElementById('webhookUrl').textContent;
+  navigator.clipboard.writeText(url).then(()=>{ const b=event.target; b.textContent='✓ Copied!'; setTimeout(()=>b.textContent='📋 Copy URL',1500); });
+}
+
+// ══════════════════════════════════════════
+//  B2B
+// ══════════════════════════════════════════
+function genB2BConvId() { document.getElementById('b2bConvId').value = generateUUID(); }
+function genB2CConvId() { document.getElementById('b2cConvId').value = generateUUID(); }
+
+async function sendB2B() {
+  if (!accessToken) { alert('Get an access token first.'); return; }
+  const btn = document.getElementById('b2bBtn');
+  btn.innerHTML = '<span class="spin">◌</span> Sending...';
+  btn.disabled = true;
+
+  const payload = {
+    OriginatorConversationID: document.getElementById('b2bConvId').value.trim(),
+    Initiator:                'apitest',
+    SecurityCredential:       '',
+    CommandID:                'BusinessToBusinessTransfer',
+    SenderIdentifierType:     '4',
+    RecieverIdentifierType:   document.getElementById('b2bReceiverType').value,
+    Amount:                   parseFloat(document.getElementById('b2bAmount').value),
+    PartyA:                   document.getElementById('b2bSender').value.trim(),
+    PartyB:                   document.getElementById('b2bReceiver').value.trim(),
+    Requester:                document.getElementById('b2bRequester').value.trim(),
+    Remarks:                  document.getElementById('b2bRemarks').value.trim(),
+    QueueTimeOutURL:          document.getElementById('b2bQueueUrl').value.trim(),
+    ResultURL:                document.getElementById('b2bResultUrl').value.trim(),
+    AccountReference:         document.getElementById('b2bAccountRef').value.trim()
+  };
+
+  const url = getEndpoint('b2b');
+  logRequest('POST', url, { Authorization: 'Bearer ...' }, payload);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    logResponse(res.status, url, data);
+    addDisbHistoryRow('B2B', payload, data);
+    genB2BConvId();
+  } catch(err) { logError(url, err); showCorsWarning(); }
+
+  btn.innerHTML = '💸 Send B2B Transfer';
+  btn.disabled = false;
+}
+
+async function sendB2C() {
+  if (!accessToken) { alert('Get an access token first.'); return; }
+  const btn = document.getElementById('b2cBtn');
+  btn.innerHTML = '<span class="spin">◌</span> Sending...';
+  btn.disabled = true;
+
+  const payload = {
+    OriginatorConversationID: document.getElementById('b2cConvId').value.trim(),
+    InitiatorName:            'apitest',
+    SecurityCredential:       '',
+    CommandID:                document.getElementById('b2cCommandId').value,
+    Amount:                   parseFloat(document.getElementById('b2cAmount').value),
+    PartyA:                   document.getElementById('b2cPartyA').value.trim(),
+    PartyB:                   document.getElementById('b2cReceiver').value.trim(),
+    Remarks:                  document.getElementById('b2cRemarks').value.trim(),
+    QueueTimeOutURL:          document.getElementById('b2cQueueUrl').value.trim(),
+    ResultURL:                document.getElementById('b2cResultUrl').value.trim(),
+    Occasion:                 ''
+  };
+
+  const url = getEndpoint('b2c');
+  logRequest('POST', url, { Authorization: 'Bearer ...' }, payload);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    logResponse(res.status, url, data);
+    addDisbHistoryRow('B2C', payload, data);
+    genB2CConvId();
+  } catch(err) { logError(url, err); showCorsWarning(); }
+
+  btn.innerHTML = '💸 Send B2C Transfer';
+  btn.disabled = false;
+}
+
+function addDisbHistoryRow(type, payload, data) {
+  const tbody = document.getElementById('disbHistoryBody');
+  const empty = tbody.querySelector('td[colspan]');
+  if (empty) tbody.innerHTML = '';
+  const ok = data.ResponseCode === '0' || data.responseCode === '0';
+  const row = tbody.insertRow(0);
+  row.innerHTML = `
+    <td><span class="badge badge-info">${type}</span></td>
+    <td class="td-mono" style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${payload.OriginatorConversationID}</td>
+    <td>${payload.PartyB}</td>
+    <td>KES ${payload.Amount}</td>
+    <td class="td-mono">${payload.AccountReference||'—'}</td>
+    <td><span class="badge badge-${ok?'success':'pending'}">${ok?'Queued':'Check log'}</span></td>
+    <td class="td-mono">${new Date().toLocaleTimeString()}</td>`;
+}
+
+// ══════════════════════════════════════════
+//  LOG PANEL
+// ══════════════════════════════════════════
+function logRequest(method, url, headers, body) {
+  logEntries++;
+  updateLogCount();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-entry-header req">
+      <span class="log-method">${method}</span>
+      <span class="log-url">${url.replace('https://corsproxy.io/?url=','[proxy] ').replace(/https?:\/\/[^\/]+/,'')}</span>
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="log-json">${syntaxHighlight(body || headers)}</div>`;
+  appendLog(entry);
+}
+function logResponse(status, url, body) {
+  const ok = status >= 200 && status < 300;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-entry-header ${ok?'res-ok':'res-err'}">
+      <span style="color:${ok?'var(--green)':'var(--red)'}">HTTP ${status}</span>
+      <span class="log-url">← response</span>
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="log-json">${syntaxHighlight(body)}</div>`;
+  appendLog(entry);
+}
+function logError(url, err) {
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-entry-header res-err">
+      <span style="color:var(--red)">NETWORK ERROR</span>
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="log-json" style="color:var(--red)">${err.message}</div>`;
+  appendLog(entry);
+}
+function logEntry(type, url, status, body) {
+  logEntries++;
+  updateLogCount();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-entry-header res-ok">
+      <span style="color:var(--green)">${type}</span>
+      <span class="log-url">${url}</span>
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="log-json">${syntaxHighlight(body)}</div>`;
+  appendLog(entry);
+}
+function appendLog(el) {
+  const body = document.getElementById('logBody');
+  const empty= document.getElementById('logEmpty');
+  if (empty) empty.remove();
+  body.insertBefore(el, body.firstChild);
+  updateLogCount();
+}
+function updateLogCount() { document.getElementById('logCount').textContent = logEntries; }
+function clearLog() {
+  document.getElementById('logBody').innerHTML = `<div class="empty-state" id="logEmpty" style="padding:30px 0"><div class="empty-icon">📋</div>API requests will appear here</div>`;
+  logEntries = 0;
+  updateLogCount();
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function syntaxHighlight(json) {
+  if (json === null || json === undefined) return '<span class="j-null">null</span>';
+  let str = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+  str = str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return str.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+    let cls = 'j-num';
+    if (/^"/.test(match)) { cls = /:$/.test(match) ? 'j-key' : 'j-str'; }
+    else if (/true|false/.test(match)) cls = 'j-bool';
+    else if (/null/.test(match)) cls = 'j-null';
+    return `<span class="${cls}">${match}</span>`;
+  });
+}
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+function togglePw(id) {
+  const el = document.getElementById(id);
+  const btn = el.nextElementSibling;
+  if (el.type === 'password') { el.type='text'; btn.textContent='hide'; }
+  else { el.type='password'; btn.textContent='show'; }
+}
+function showCorsWarning() {
+  const existing = document.getElementById('corsAlert');
+  if (existing) return;
+  const div = document.createElement('div');
+  div.id = 'corsAlert';
+  div.className = 'alert alert-warn';
+  div.innerHTML = `<span class="alert-icon">🚫</span><span><b>CORS Error detected.</b> Enable the <b>CORS Proxy</b> toggle in the header (top right) and retry. Note: avoid CORS proxy with production credentials — use a backend server instead. You can also install the "Allow CORS" browser extension for local testing.</span>`;
+  document.querySelector('.content').insertBefore(div, document.querySelector('.content').firstChild);
+}
+</script>
+</body>
+</html>
